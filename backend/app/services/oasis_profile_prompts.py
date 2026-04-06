@@ -15,16 +15,18 @@ def get_system_prompt(is_individual: bool) -> str:
             "opinionated, contradictory, specific. Avoid generic corporate-speak or "
             "balanced-sounding descriptions. Every person has biases, blind spots, and "
             "strong feelings about something. Lean into those.\n\n"
-            "Return valid JSON. All string values must be plain text (no newlines, no markdown). "
-            "Use English."
+            "Return valid JSON. The 'persona' field should use the structured markdown sections "
+            "(## SOUL, ## STYLE, ## BEHAVIOR) as instructed. Other string fields (bio, profession, etc.) "
+            "should be plain text. Use English."
         )
     return (
         "You are an expert in institutional communications creating official social media "
         "account personas for a multi-agent simulation. Institutional accounts have a distinct "
         "voice — formal but not robotic, on-message but not tone-deaf. They hedge on "
         "controversies, amplify achievements, and deflect criticism with practiced diplomacy.\n\n"
-        "Return valid JSON. All string values must be plain text (no newlines, no markdown). "
-        "Use English."
+        "Return valid JSON. The 'persona' field should use the structured markdown sections "
+        "(## SOUL, ## STYLE, ## BEHAVIOR) as instructed. Other string fields (bio, profession, etc.) "
+        "should be plain text. Use English."
     )
 
 
