@@ -36,6 +36,7 @@ class PolymarketPromptBuilder(BasePromptBuilder):
                 risk_str = other["risk_tolerance"]
 
         return f"""\
+/no_think
 # WHO YOU ARE
 You are a trader on a prediction market platform (similar to Polymarket). \
 You have your own worldview, domain expertise, and risk appetite. Your \

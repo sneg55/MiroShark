@@ -46,6 +46,7 @@ def generate_profile_with_llm(
             content = llm.chat(
                 messages=messages,
                 temperature=0.7 - (attempt * 0.1),
+                max_tokens=8192,
                 response_format={"type": "json_object"},
             )
             try:

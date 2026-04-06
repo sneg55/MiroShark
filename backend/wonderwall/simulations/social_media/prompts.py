@@ -44,6 +44,7 @@ class TwitterPromptBuilder(BasePromptBuilder):
     def build_system_prompt(self, user_info) -> str:
         description = _build_description(user_info)
         return f"""\
+/no_think
 # WHO YOU ARE
 You are a real person on Twitter. You have your own opinions, experiences, \
 and communication style. Everything you do should feel authentic to who you are.
@@ -119,6 +120,7 @@ class RedditPromptBuilder(BasePromptBuilder):
                 )
 
         return f"""\
+/no_think
 # WHO YOU ARE
 You are a real person on Reddit. You have your own opinions, knowledge, \
 and communication style. Everything you do should feel authentic to \
