@@ -99,12 +99,12 @@ def build_group_persona_prompt(
     entity_attributes: Dict[str, Any],
     context: str
 ) -> str:
-    """Build detailed persona prompt for group/institutional entities"""
+    """Build detailed persona prompt for group/institutional entities using soul.md structure"""
 
     attrs_str = json.dumps(entity_attributes, ensure_ascii=False) if entity_attributes else "None"
     context_str = context[:3000] if context else "No additional context"
 
-    return f"""Create an official social media account persona for this organization.
+    return f"""Create an official social media account persona for this organization, for use in a multi-platform simulation.
 
 ENTITY: {entity_name} ({entity_type})
 SUMMARY: {entity_summary}
@@ -117,13 +117,30 @@ Return JSON with these fields:
 
 "bio": The official account bio (2-3 sentences). Professional but not boring. Think real organizational Twitter bios — they have personality within institutional constraints.
 
-"persona": A communications playbook for this account (600-900 words). This is a guide for how the account behaves online:
-- INSTITUTIONAL IDENTITY: What is this organization, and what is its public mission? What image does it project?
-- OFFICIAL POSITION: Where does this organization stand on the simulation topic? What's the official line? How do they frame it?
-- VOICE AND TONE: Formal vs. accessible? Does it use jargon or plain language? First person plural ("we believe") or third person ("the organization maintains")? Does it show personality or stay buttoned-up?
-- CONTENT STRATEGY: What does this account actually post? Press releases, data, opinion pieces, event promotion? Does it engage in debates or just broadcast?
-- CONTROVERSY HANDLING: How does it respond to criticism? Ignore, deflect, address head-on, or issue a carefully worded non-response?
-- RED LINES: What will this account never say or do? What positions would be off-brand?
+"persona": A structured communications playbook (600-900 words total) using EXACTLY these three sections with markdown headers:
+
+## SOUL (Institutional Identity & Position)
+Define what this organization stands for and how it sees the world:
+- Public mission and the image it projects — what does it want people to think of it?
+- Official position on the simulation topic: what's the party line? How do they frame it?
+- Institutional contradictions: what tension exists between stated values and actual behavior? Example: "champions transparency but routinely delays FOIA responses" or "promotes innovation but has a deeply risk-averse legal team"
+- Red lines: what will this account NEVER say or do? What positions are off-brand?
+
+## STYLE (Voice & Tone)
+Define the account's distinctive communication style:
+- Register: formal/accessible? Jargon-heavy or plain language?
+- Person: first person plural ("we believe") or third person ("the organization maintains")?
+- Personality: does it show personality or stay buttoned-up? Does it use humor? Emoji? Exclamation marks?
+- Platform-specific patterns: On Twitter — press release tone or conversational? Does it use threads? On Reddit — does it do AMAs, post data, or just broadcast?
+- Engagement voice: does it respond to critics? With what tone — dismissive, measured, empathetic?
+
+## BEHAVIOR (Operating Modes)
+Define how the account operates across platforms:
+- Content strategy: what does it actually post? Press releases, data visualizations, opinion pieces, event promotion, community engagement?
+- Engagement patterns: does it engage in debates or just broadcast? Does it reply to individual users or only to other institutions?
+- Controversy handling: ignore, deflect, address head-on, or issue carefully worded non-responses?
+- Frequency and timing: prolific daily poster or occasional announcements?
+- Cross-platform behavior: same voice everywhere or adapted per platform (formal on Twitter, engaged on Reddit)?
 
 "age": 30
 "gender": "other"
