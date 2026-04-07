@@ -142,13 +142,11 @@ async def run_polymarket_simulation(
     time_config = config.get("time_config", {})
     total_hours = time_config.get("total_simulation_hours", 72)
     minutes_per_round = time_config.get("minutes_per_round", 30)
-    total_rounds = (total_hours * 60) // minutes_per_round
-
+    # max_rounds is the target, not a ceiling — SaaS layer controls round count
     if max_rounds is not None and max_rounds > 0:
-        original_rounds = total_rounds
-        total_rounds = min(total_rounds, max_rounds)
-        if total_rounds < original_rounds:
-            log_info(f"Rounds truncated: {original_rounds} -> {total_rounds}")
+        total_rounds = max_rounds
+    else:
+        total_rounds = (total_hours * 60) // minutes_per_round
 
     belief_tracker = BeliefTracker(config, simulation_dir, "polymarket")
     log_info(f"Belief tracking: {len(belief_tracker.topics)} topics")

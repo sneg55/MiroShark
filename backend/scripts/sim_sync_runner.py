@@ -88,9 +88,11 @@ async def run_synchronized_simulation(
     time_config = config.get("time_config", {})
     minutes_per_round = time_config.get("minutes_per_round", 30)
     total_hours = time_config.get("total_simulation_hours", 72)
-    total_rounds = (total_hours * 60) // minutes_per_round
+    # max_rounds is the target, not a ceiling — SaaS layer controls round count
     if max_rounds is not None and max_rounds > 0:
-        total_rounds = min(total_rounds, max_rounds)
+        total_rounds = max_rounds
+    else:
+        total_rounds = (total_hours * 60) // minutes_per_round
 
     tw_rowid = rd_rowid = pm_rowid = 0
     start_time = datetime.now()

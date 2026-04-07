@@ -93,8 +93,13 @@ async def main(
     total_hours = time_config.get('total_simulation_hours', 72)
     minutes_per_round = time_config.get('minutes_per_round', 30)
     config_total_rounds = (total_hours * 60) // minutes_per_round
-    log_manager.info(f"  {total_hours}h / {minutes_per_round}min-per-round = {config_total_rounds} rounds"
-                     + (f" (capped at {args.max_rounds})" if args.max_rounds else ""))
+    actual_rounds = args.max_rounds if args.max_rounds and args.max_rounds > 0 else config_total_rounds
+
+    log_manager.info(f"Simulation parameters:")
+    log_manager.info(f"  - Total simulation duration: {total_hours} hours")
+    log_manager.info(f"  - Time per round: {minutes_per_round} minutes")
+    log_manager.info(f"  - Config rounds: {config_total_rounds}, max_rounds: {args.max_rounds}")
+    log_manager.info(f"  - Actual rounds to execute: {actual_rounds}")
     log_manager.info(f"  Agents: {len(config.get('agent_configs', []))}")
 
     runner_kwargs = dict(

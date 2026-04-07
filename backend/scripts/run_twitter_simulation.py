@@ -546,15 +546,11 @@ class TwitterSimulationRunner:
         total_hours = time_config.get("total_simulation_hours", 72)
         minutes_per_round = time_config.get("minutes_per_round", 30)
         
-        # Calculate total rounds
-        total_rounds = (total_hours * 60) // minutes_per_round
-        
-        # If max rounds specified, truncate
+        # max_rounds is the target, not a ceiling — SaaS layer controls round count
         if max_rounds is not None and max_rounds > 0:
-            original_rounds = total_rounds
-            total_rounds = min(total_rounds, max_rounds)
-            if total_rounds < original_rounds:
-                print(f"\nRounds truncated: {original_rounds} -> {total_rounds} (max_rounds={max_rounds})")
+            total_rounds = max_rounds
+        else:
+            total_rounds = (total_hours * 60) // minutes_per_round
         
         print(f"\nSimulation parameters:")
         print(f"  - Total simulation duration: {total_hours} hours")
