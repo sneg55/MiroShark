@@ -34,7 +34,10 @@ from .simulation_config_prompts import (
     generate_time_config,
     generate_event_config,
     generate_prediction_markets,
+)
+from .simulation_config_agents import (
     generate_agent_configs_batch,
+    generate_agent_configs_multi,
 )
 
 logger = get_logger('miroshark.simulation_config')
@@ -104,8 +107,11 @@ class SimulationConfigGenerator:
             f"entity_count={len(entities)}")
 
         num_entities = len(entities)
+        use_multi = target_agents > num_entities
         num_batches = math.ceil(num_entities / self.AGENTS_PER_BATCH)
-        total_steps = 3 + num_batches
+        # Multi-perspective is a single LLM call (1 step); batch is N steps
+        agent_steps = 1 if use_multi else num_batches
+        total_steps = 3 + agent_steps
         current_step = 0
 
         def report_progress(step: int, message: str):
@@ -143,12 +149,20 @@ class SimulationConfigGenerator:
         event_config.initial_markets = markets
         reasoning_parts.append(f"Prediction markets: {len(markets)} generated")
 
-        # Steps 3-N: Batch generate Agent configurations (parallel)
-        all_agent_configs = self._generate_agents_parallel(
-            context, entities, simulation_requirement,
-            num_batches, report_progress)
-        reasoning_parts.append(
-            f"Agent configs: Successfully generated {len(all_agent_configs)}")
+        # Steps 3-N: Agent configurations
+        if use_multi:
+            report_progress(4, f"Generating {target_agents} multi-perspective agents...")
+            all_agent_configs = generate_agent_configs_multi(
+                self._llm, context, entities,
+                simulation_requirement, target_agents)
+            reasoning_parts.append(
+                f"Agent configs: multi-perspective, {len(all_agent_configs)} generated")
+        else:
+            all_agent_configs = self._generate_agents_parallel(
+                context, entities, simulation_requirement,
+                num_batches, report_progress)
+            reasoning_parts.append(
+                f"Agent configs: batch, {len(all_agent_configs)} generated")
 
         # Assign publisher Agents to initial posts
         event_config = assign_initial_post_agents(event_config, all_agent_configs)

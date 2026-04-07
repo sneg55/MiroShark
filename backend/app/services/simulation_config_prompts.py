@@ -1,15 +1,14 @@
 """
 Simulation config prompts — LLM-based generation methods for
-time, event, agent, and prediction market configurations.
+time, event, and prediction market configurations.
 """
 
-import json
 from typing import Dict, Any, List
 
 from ..utils.logger import get_logger
 from .entity_reader import EntityNode
-from .simulation_config_types import AgentActivityConfig, EventConfig
-from .simulation_config_rules import get_default_time_config, generate_agent_config_by_rule
+from .simulation_config_types import EventConfig
+from .simulation_config_rules import get_default_time_config
 from .simulation_config_llm import SimulationConfigLLM
 
 logger = get_logger('miroshark.simulation_config')
@@ -195,78 +194,3 @@ Generate ONE prediction market:
             "initial_probability": 0.55,
             "reasoning": "Fallback — auto-generated from simulation requirement",
         }]
-
-
-def generate_agent_configs_batch(llm: SimulationConfigLLM, context: str,
-                                 entities: List[EntityNode], start_idx: int,
-                                 simulation_requirement: str) -> List[AgentActivityConfig]:
-    """Batch generate Agent configurations."""
-    summary_len = llm.AGENT_SUMMARY_LENGTH
-    entity_list = [{
-        "agent_id": start_idx + i,
-        "entity_name": e.name,
-        "entity_type": e.get_entity_type() or "Unknown",
-        "summary": e.summary[:summary_len] if e.summary else "",
-    } for i, e in enumerate(entities)]
-
-    prompt = f"""Generate social media activity configuration for each entity.
-
-Simulation requirement: {simulation_requirement}
-
-## Entity List
-```json
-{json.dumps(entity_list, ensure_ascii=False, indent=2)}
-```
-
-## Task
-Return JSON (no markdown):
-{{
-    "agent_configs": [
-        {{
-            "agent_id": <must match>, "activity_level": <0-1>,
-            "posts_per_hour": <float>, "comments_per_hour": <float>,
-            "active_hours": [<hours>],
-            "response_delay_min": <int>, "response_delay_max": <int>,
-            "sentiment_bias": <-1 to 1>,
-            "stance": "<supportive/opposing/neutral/observer>",
-            "influence_weight": <float>
-        }}, ...
-    ]
-}}"""
-
-    system_prompt = (
-        "You are a social media behavior analyst. Return pure JSON.\n\n"
-        "HEURISTICS:\n"
-        "- Institutions: 0.5-1/hr, high influence. Journalists: 2-4/hr.\n"
-        "- Activists: 3-5/hr, strong sentiment. Regular people: 0.3-1/hr.\n"
-        "- influence_weight: 2-3 institutions, 1-2 experts, 0.5-1 individuals.\n"
-    )
-
-    try:
-        result = llm.call_llm_with_retry(prompt, system_prompt)
-        llm_configs = {cfg["agent_id"]: cfg for cfg in result.get("agent_configs", [])}
-    except Exception as e:
-        logger.warning(f"Agent config batch LLM failed: {e}, using rule-based")
-        llm_configs = {}
-
-    configs = []
-    for i, entity in enumerate(entities):
-        agent_id = start_idx + i
-        cfg = llm_configs.get(agent_id, {})
-        if not cfg:
-            cfg = generate_agent_config_by_rule(entity)
-        configs.append(AgentActivityConfig(
-            agent_id=agent_id, entity_uuid=entity.uuid,
-            entity_name=entity.name,
-            entity_type=entity.get_entity_type() or "Unknown",
-            activity_level=cfg.get("activity_level", 0.5),
-            posts_per_hour=cfg.get("posts_per_hour", 0.5),
-            comments_per_hour=cfg.get("comments_per_hour", 1.0),
-            active_hours=cfg.get("active_hours", list(range(9, 23))),
-            response_delay_min=cfg.get("response_delay_min", 5),
-            response_delay_max=cfg.get("response_delay_max", 60),
-            sentiment_bias=cfg.get("sentiment_bias", 0.0),
-            stance=cfg.get("stance", "neutral"),
-            influence_weight=cfg.get("influence_weight", 1.0),
-        ))
-    return configs
