@@ -4,81 +4,25 @@ Simulation preparation helpers — profile generation and config generation phas
 
 import os
 import json
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from ..utils.logger import get_logger
-from .entity_reader import EntityReader, FilteredEntities
+from .entity_reader import EntityReader, EntityNode, FilteredEntities
 from .oasis_profile_generator import OasisProfileGenerator
 from .simulation_config_generator import SimulationConfigGenerator
+from .simulation_config_types import SimulationParameters
 from .simulation_types import SimulationState, SimulationStatus
 
 logger = get_logger('miroshark.simulation')
 
 
-def generate_profiles(state, sim_dir, filtered, storage,
-                      simulation_requirement, use_llm_for_profiles,
-                      progress_callback, parallel_profile_count):
-    """Phase 2: Generate Agent Profiles."""
-    total_entities = len(filtered.entities)
-
-    if progress_callback:
-        progress_callback("generating_profiles", 0, "Starting generation...",
-                          current=0, total=total_entities)
-
-    generator = OasisProfileGenerator(
-        storage=storage, graph_id=state.graph_id,
-        simulation_requirement=simulation_requirement,
-    )
-
-    def profile_progress(current, total, msg):
-        if progress_callback:
-            progress_callback("generating_profiles", int(current / total * 100),
-                              msg, current=current, total=total, item_name=msg)
-
-    realtime_output_path = None
-    realtime_platform = "reddit"
-    if state.enable_reddit:
-        realtime_output_path = os.path.join(sim_dir, "reddit_profiles.json")
-    elif state.enable_twitter:
-        realtime_output_path = os.path.join(sim_dir, "twitter_profiles.csv")
-        realtime_platform = "twitter"
-
-    profiles = generator.generate_profiles_from_entities(
-        entities=filtered.entities, use_llm=use_llm_for_profiles,
-        progress_callback=profile_progress, graph_id=state.graph_id,
-        parallel_count=parallel_profile_count,
-        realtime_output_path=realtime_output_path,
-        output_platform=realtime_platform,
-    )
-
-    state.profiles_count = len(profiles)
-
-    if progress_callback:
-        progress_callback("generating_profiles", 95, "Saving Profile files...",
-                          current=total_entities, total=total_entities)
-
-    if state.enable_reddit:
-        generator.save_profiles(profiles=profiles,
-                                file_path=os.path.join(sim_dir, "reddit_profiles.json"),
-                                platform="reddit")
-    if state.enable_twitter:
-        generator.save_profiles(profiles=profiles,
-                                file_path=os.path.join(sim_dir, "twitter_profiles.csv"),
-                                platform="twitter")
-    if state.enable_polymarket:
-        generator.save_profiles(profiles=profiles,
-                                file_path=os.path.join(sim_dir, "polymarket_profiles.json"),
-                                platform="polymarket")
-
-    if progress_callback:
-        progress_callback("generating_profiles", 100,
-                          f"Done, {len(profiles)} Profiles in total",
-                          current=len(profiles), total=len(profiles))
-
-
 def generate_config(state, sim_dir, filtered, simulation_requirement,
                     document_text, progress_callback, target_agents):
-    """Phase 3: LLM-powered simulation config generation."""
+    """Phase 2: LLM-powered simulation config generation.
+
+    Returns the SimulationParameters so callers can use the expanded agent
+    roster for downstream steps (e.g. profile generation).
+    """
     if progress_callback:
         progress_callback("generating_config", 0,
                           "Analyzing simulation requirements...",
@@ -117,3 +61,103 @@ def generate_config(state, sim_dir, filtered, simulation_requirement,
     if progress_callback:
         progress_callback("generating_config", 100, "Config generation complete",
                           current=3, total=3)
+
+    return sim_params
+
+
+def _build_entities_from_configs(sim_params, filtered):
+    """Build an expanded EntityNode list from agent configs.
+
+    For each agent config in sim_params.agent_configs:
+    - If the agent has an entity_uuid matching a real entity, use that entity.
+    - Otherwise (synthetic/observer agents), create a minimal EntityNode.
+
+    Returns a list of EntityNode in the same order as sim_params.agent_configs.
+    """
+    entity_map: Dict[str, EntityNode] = {
+        e.uuid: e for e in filtered.entities
+    }
+
+    expanded: List[EntityNode] = []
+    for cfg in sim_params.agent_configs:
+        real_entity = entity_map.get(cfg.entity_uuid)
+        if real_entity is not None:
+            expanded.append(real_entity)
+        else:
+            expanded.append(EntityNode(
+                uuid=f"synthetic_{cfg.agent_id}",
+                name=cfg.entity_name,
+                labels=[cfg.entity_type],
+                summary=f"{cfg.entity_name} ({cfg.entity_type})",
+                attributes={},
+            ))
+
+    return expanded
+
+
+def generate_profiles_from_configs(state, sim_dir, sim_params, filtered,
+                                   storage, simulation_requirement,
+                                   use_llm_for_profiles, progress_callback,
+                                   parallel_profile_count):
+    """Phase 3: Generate Agent Profiles from the expanded agent config roster.
+
+    Unlike the old generate_profiles() which only profiled the raw entities,
+    this creates a profile for every agent in sim_params.agent_configs —
+    including synthetic/observer agents added during config generation.
+    """
+    entities = _build_entities_from_configs(sim_params, filtered)
+    total_entities = len(entities)
+
+    if progress_callback:
+        progress_callback("generating_profiles", 0, "Starting generation...",
+                          current=0, total=total_entities)
+
+    generator = OasisProfileGenerator(
+        storage=storage, graph_id=state.graph_id,
+        simulation_requirement=simulation_requirement,
+    )
+
+    def profile_progress(current, total, msg):
+        if progress_callback:
+            progress_callback("generating_profiles", int(current / total * 100),
+                              msg, current=current, total=total, item_name=msg)
+
+    realtime_output_path = None
+    realtime_platform = "reddit"
+    if state.enable_reddit:
+        realtime_output_path = os.path.join(sim_dir, "reddit_profiles.json")
+    elif state.enable_twitter:
+        realtime_output_path = os.path.join(sim_dir, "twitter_profiles.csv")
+        realtime_platform = "twitter"
+
+    profiles = generator.generate_profiles_from_entities(
+        entities=entities, use_llm=use_llm_for_profiles,
+        progress_callback=profile_progress, graph_id=state.graph_id,
+        parallel_count=parallel_profile_count,
+        realtime_output_path=realtime_output_path,
+        output_platform=realtime_platform,
+    )
+
+    state.profiles_count = len(profiles)
+
+    if progress_callback:
+        progress_callback("generating_profiles", 95, "Saving Profile files...",
+                          current=total_entities, total=total_entities)
+
+    if state.enable_reddit:
+        generator.save_profiles(profiles=profiles,
+                                file_path=os.path.join(sim_dir, "reddit_profiles.json"),
+                                platform="reddit")
+    if state.enable_twitter:
+        generator.save_profiles(profiles=profiles,
+                                file_path=os.path.join(sim_dir, "twitter_profiles.csv"),
+                                platform="twitter")
+    if state.enable_polymarket:
+        generator.save_profiles(profiles=profiles,
+                                file_path=os.path.join(sim_dir, "polymarket_profiles.json"),
+                                platform="polymarket")
+
+    if progress_callback:
+        progress_callback("generating_profiles", 100,
+                          f"Done, {len(profiles)} Profiles in total",
+                          current=len(profiles), total=len(profiles))

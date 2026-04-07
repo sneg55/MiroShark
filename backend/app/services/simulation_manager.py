@@ -22,8 +22,8 @@ from .simulation_persistence import (
     load_simulation_state,
 )
 from .simulation_preparation import (
-    generate_profiles,
     generate_config,
+    generate_profiles_from_configs,
 )
 
 logger = get_logger('miroshark.simulation')
@@ -99,8 +99,8 @@ class SimulationManager:
 
         Steps:
         1. Read and filter entities from graph
-        2. Generate OASIS Agent Profiles
-        3. Use LLM to generate simulation config parameters
+        2. Generate simulation config (determines expanded agent roster)
+        3. Generate OASIS Agent Profiles from expanded agent configs
         4. Save config and profile files
         """
         state = self._load_simulation_state(simulation_id)
@@ -143,14 +143,17 @@ class SimulationManager:
                 self._save_simulation_state(state)
                 return state
 
-            # Phase 2: Generate Agent Profiles
-            generate_profiles(state, sim_dir, filtered, storage,
-                              simulation_requirement, use_llm_for_profiles,
-                              progress_callback, parallel_profile_count)
+            # Phase 2: Config generation (determines agent roster)
+            sim_params = generate_config(state, sim_dir, filtered,
+                                         simulation_requirement, document_text,
+                                         progress_callback, target_agents)
 
-            # Phase 3: LLM-powered simulation config generation
-            generate_config(state, sim_dir, filtered, simulation_requirement,
-                            document_text, progress_callback, target_agents)
+            # Phase 3: Profile generation (from expanded agent configs)
+            generate_profiles_from_configs(state, sim_dir, sim_params, filtered,
+                                           storage, simulation_requirement,
+                                           use_llm_for_profiles,
+                                           progress_callback,
+                                           parallel_profile_count)
 
             state.status = SimulationStatus.READY
             self._save_simulation_state(state)
