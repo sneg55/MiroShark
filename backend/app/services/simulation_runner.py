@@ -18,7 +18,7 @@ import threading
 from queue import Queue
 from typing import Any, Dict, List, Optional
 
-from .simulation_runner_types import RunnerStatus, AgentAction, SimulationRunState
+from .simulation_runner_types import RunnerStatus, AgentAction, RoundSummary, SimulationRunState
 from .simulation_runner_state import load_run_state, save_run_state
 from .simulation_runner_process import start_simulation as _start, stop_simulation as _stop
 from .simulation_runner_lifecycle import cleanup_all_simulations as _cleanup_all, register_cleanup
