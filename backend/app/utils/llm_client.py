@@ -156,7 +156,20 @@ class LLMClient:
         cleaned_response = re.sub(r'\n?```\s*$', '', cleaned_response)
         cleaned_response = cleaned_response.strip()
 
+        # Surface enough detail when vLLM returns empty / truncated / malformed
+        # output so upstream callers (e.g. NER extractor) don't just silently
+        # record 0 entities on every chunk. An empty response in particular
+        # usually means a hermes-parser failure or context-length overflow
+        # rather than an actual JSON parse issue.
+        if not cleaned_response:
+            raise ValueError(
+                f"LLM returned empty response (raw_len={len(response)}, "
+                f"raw_repr={response[:200]!r})"
+            )
         try:
             return json.loads(cleaned_response)
-        except json.JSONDecodeError:
-            raise ValueError(f"Invalid JSON format returned by LLM: {cleaned_response}")
+        except json.JSONDecodeError as e:
+            raise ValueError(
+                f"Invalid JSON from LLM: {e} | cleaned_len={len(cleaned_response)} "
+                f"preview={cleaned_response[:300]!r}"
+            )
